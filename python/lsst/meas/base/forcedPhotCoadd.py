@@ -227,7 +227,7 @@ class ForcedPhotCoaddTask(pipeBase.PipelineTask):
                                                                        footprintData)
         outputs = self.run(**inputs)
         # Strip HeavyFootprints to save space on disk
-        if self.config.footprintDatasetName == "ScarletModelData" and self.config.doStripFootprints:
+        if self.config.doStripFootprints:
             sources = outputs.measCat
             for source in sources[sources["parent"] != 0]:
                 source.setFootprint(None)
