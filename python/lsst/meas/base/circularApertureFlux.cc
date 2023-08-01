@@ -32,8 +32,7 @@ using namespace pybind11::literals;
 namespace lsst {
 namespace meas {
 namespace base {
-using PyApertureFluxClass = py::class_<CircularApertureFluxAlgorithm,
-                                       std::shared_ptr<CircularApertureFluxAlgorithm>, ApertureFluxAlgorithm>;
+using PyApertureFluxClass = py::class_<CircularApertureFluxAlgorithm, ApertureFluxAlgorithm>;
 void wrapCircularApertureFlux(lsst::cpputils::python::WrapperCollection &wrappers)  {
 
     wrappers.wrapType(PyApertureFluxClass(wrappers.module,  "CircularApertureFluxAlgorithm"), [](auto &mod, auto &cls) {

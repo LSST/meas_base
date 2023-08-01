@@ -37,11 +37,11 @@ namespace base {
 
 namespace {
 
-using PyFluxAlgorithm = py::class_<PeakLikelihoodFluxAlgorithm, std::shared_ptr<PeakLikelihoodFluxAlgorithm>,
+using PyFluxAlgorithm = py::class_<PeakLikelihoodFluxAlgorithm,
                                    SimpleAlgorithm>;
 using PyFluxControl = py::class_<PeakLikelihoodFluxControl>;
 using PyFluxTransform =
-        py::class_<PeakLikelihoodFluxTransform, std::shared_ptr<PeakLikelihoodFluxTransform>, BaseTransform>;
+        py::class_<PeakLikelihoodFluxTransform, BaseTransform>;
 
 PyFluxControl declareFluxControl(lsst::cpputils::python::WrapperCollection &wrappers) {
     return wrappers.wrapType(PyFluxControl(wrappers.module, "PeakLikelihoodFluxControl"), [](auto &mod, auto &cls) {

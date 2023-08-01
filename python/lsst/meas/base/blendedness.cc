@@ -40,7 +40,7 @@ namespace base {
 namespace {
 
 using PyBlendenessAlgorithm =
-        py::class_<BlendednessAlgorithm, std::shared_ptr<BlendednessAlgorithm>, SimpleAlgorithm>;
+        py::class_<BlendednessAlgorithm, SimpleAlgorithm>;
 using PyBlendenessControl = py::class_<BlendednessControl>;
 
 PyBlendenessControl declareBlendednessControl(lsst::cpputils::python::WrapperCollection &wrappers) {

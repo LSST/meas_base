@@ -38,7 +38,7 @@ namespace base {
 namespace {
 
 void declareFlagDefinition(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyFlagDefinition = py::class_<FlagDefinition, std::shared_ptr<FlagDefinition>>;
+    using PyFlagDefinition = py::class_<FlagDefinition>;
     wrappers.wrapType(PyFlagDefinition(wrappers.module, "FlagDefinition"), [](auto &mod, auto &cls) {
         cls.def(py::init<>());
         cls.def(py::init<std::string, std::string, std::size_t>(), "name"_a, "doc"_a,
@@ -54,7 +54,7 @@ void declareFlagDefinition(lsst::cpputils::python::WrapperCollection &wrappers) 
 }
 
 void declareFlagDefinitionList(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyFlagDefinitionList = py::class_<FlagDefinitionList, std::shared_ptr<FlagDefinitionList>>;
+    using PyFlagDefinitionList = py::class_<FlagDefinitionList>;
     wrappers.wrapType(PyFlagDefinitionList(wrappers.module, "FlagDefinitionList"), [](auto &mod, auto &cls) {
         cls.def(py::init<>());
         cls.def(py::init<std::initializer_list<FlagDefinition> const &>());
@@ -86,7 +86,7 @@ void declareFlagDefinitionList(lsst::cpputils::python::WrapperCollection &wrappe
 }
 
 void declareFlagHandler(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyFlagHandler = py::class_<FlagHandler, std::shared_ptr<FlagHandler>>;
+    using PyFlagHandler = py::class_<FlagHandler>;
     wrappers.wrapType(PyFlagHandler(wrappers.module, "FlagHandler"), [](auto &mod, auto &cls) {
         cls.def(py::init<>());
         cls.def(py::init<afw::table::SubSchema const &, FlagDefinitionList const &, FlagDefinitionList const &>(),

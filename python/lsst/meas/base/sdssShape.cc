@@ -44,11 +44,11 @@ namespace {
 using PyShapeControl = py::class_<SdssShapeControl>;
 // TODO decide if we need to mention afw::table::FunctorKey<SdssShapeResult>
 // and if so, wrap it; if not, document that here
-using PyShapeResultKey = py::class_<SdssShapeResultKey, std::shared_ptr<SdssShapeResultKey>>;
-using PyShapeResult = py::class_<SdssShapeResult, std::shared_ptr<SdssShapeResult>, ShapeResult,
+using PyShapeResultKey = py::class_<SdssShapeResultKey>;
+using PyShapeResult = py::class_<SdssShapeResult, ShapeResult,
                                  CentroidResult, FluxResult>;
-using PyShapeAlgorithm = py::class_<SdssShapeAlgorithm, std::shared_ptr<SdssShapeAlgorithm>, SimpleAlgorithm>;
-using PyShapeTransform = py::class_<SdssShapeTransform, std::shared_ptr<SdssShapeTransform>, BaseTransform>;
+using PyShapeAlgorithm = py::class_<SdssShapeAlgorithm, SimpleAlgorithm>;
+using PyShapeTransform = py::class_<SdssShapeTransform, BaseTransform>;
 
 PyShapeControl declareShapeControl(lsst::cpputils::python::WrapperCollection &wrappers) {
     return wrappers.wrapType(PyShapeControl(wrappers.module, "SdssShapeControl"), [](auto &mod, auto &cls) {

@@ -38,8 +38,8 @@ namespace base {
 
 namespace {
 
-using PyShapeResult = py::class_<ShapeResult, std::shared_ptr<ShapeResult>>;
-using PyShapeResultKey = py::class_<ShapeResultKey, std::shared_ptr<ShapeResultKey>>;
+using PyShapeResult = py::class_<ShapeResult>;
+using PyShapeResultKey = py::class_<ShapeResultKey>;
 
 void declareShapeResult(lsst::cpputils::python::WrapperCollection &wrappers) {
     wrappers.wrapType(PyShapeResult(wrappers.module, "ShapeResult"), [](auto &mod, auto &cls) {

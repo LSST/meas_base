@@ -40,7 +40,7 @@ namespace base {
 
 void wrapPixelFLags(lsst::cpputils::python::WrapperCollection &wrappers) {
     wrappers.wrap([](auto &mod) {
-        py::class_<PixelFlagsAlgorithm, std::shared_ptr<PixelFlagsAlgorithm>, SimpleAlgorithm>
+        py::class_<PixelFlagsAlgorithm, SimpleAlgorithm>
                 clsPixelFlagsAlgorithm(mod, "PixelFlagsAlgorithm");
         py::class_<PixelFlagsControl> clsPixelFlagsControl(mod, "PixelFlagsControl");
 

@@ -36,7 +36,7 @@ namespace foo {
 namespace bar {
 
 PYBIND11_MODULE(_sillyCentroid, mod) {
-    py::class_<SillyCentroidAlgorithm, std::shared_ptr<SillyCentroidAlgorithm>,
+    py::class_<SillyCentroidAlgorithm,
                lsst::meas::base::SimpleAlgorithm>
             clsSillyCentroidAlgorithm(mod, "SillyCentroidAlgorithm");
     py::class_<SillyCentroidControl> clsSillyCentroidControl(mod, "SillyCentroidControl");

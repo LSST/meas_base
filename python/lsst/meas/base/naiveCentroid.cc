@@ -40,10 +40,10 @@ namespace base {
 namespace {
 
 using PyCentroidAlgorithm =
-        py::class_<NaiveCentroidAlgorithm, std::shared_ptr<NaiveCentroidAlgorithm>, SimpleAlgorithm>;
+        py::class_<NaiveCentroidAlgorithm, SimpleAlgorithm>;
 using PyCentroidControl = py::class_<NaiveCentroidControl>;
 using PyCentroidTransform =
-        py::class_<NaiveCentroidTransform, std::shared_ptr<NaiveCentroidTransform>, CentroidTransform>;
+        py::class_<NaiveCentroidTransform, CentroidTransform>;
 
 PyCentroidControl declareCentroidControl(lsst::cpputils::python::WrapperCollection &wrappers) {
     return wrappers.wrapType(PyCentroidControl(wrappers.module, "NaiveCentroidControl"), [](auto &mod, auto &cls) {

@@ -41,11 +41,11 @@ namespace base {
 namespace {
 
 using PyFluxAlgorithm =
-        py::class_<ApertureFluxAlgorithm, std::shared_ptr<ApertureFluxAlgorithm>, SimpleAlgorithm>;
+        py::class_<ApertureFluxAlgorithm, SimpleAlgorithm>;
 using PyFluxControl = py::class_<ApertureFluxControl>;
-using PyFluxResult = py::class_<ApertureFluxResult, std::shared_ptr<ApertureFluxResult>, FluxResult>;
+using PyFluxResult = py::class_<ApertureFluxResult, FluxResult>;
 using PyFluxTransform =
-        py::class_<ApertureFluxTransform, std::shared_ptr<ApertureFluxTransform>, BaseTransform>;
+        py::class_<ApertureFluxTransform, BaseTransform>;
 
 PyFluxControl declareFluxControl(lsst::cpputils::python::WrapperCollection &wrappers) {
     return wrappers.wrapType(PyFluxControl(wrappers.module, "ApertureFluxControl"), [](auto &mod, auto &cls) {

@@ -42,10 +42,10 @@ namespace base {
 namespace {
 
 using PyAlgorithm =
-        py::class_<LocalBackgroundAlgorithm, std::shared_ptr<LocalBackgroundAlgorithm>, SimpleAlgorithm>;
+        py::class_<LocalBackgroundAlgorithm, SimpleAlgorithm>;
 using PyControl = py::class_<LocalBackgroundControl>;
 using PyTransform =
-        py::class_<LocalBackgroundTransform, std::shared_ptr<LocalBackgroundTransform>, BaseTransform>;
+        py::class_<LocalBackgroundTransform, BaseTransform>;
 
 PyControl declareControl(lsst::cpputils::python::WrapperCollection &wrappers) {
     return wrappers.wrapType(PyControl(wrappers.module, "LocalBackgroundControl"), [](auto &mod, auto &cls) {

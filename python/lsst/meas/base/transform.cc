@@ -35,7 +35,7 @@ namespace meas {
 namespace base {
 
 void wrapTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyBaseTransform = py::class_<BaseTransform, std::shared_ptr<BaseTransform>>;
+    using PyBaseTransform = py::class_<BaseTransform>;
     wrappers.wrapType(PyBaseTransform(wrappers.module, "BaseTransform"), [](auto &mod, auto &cls) {
         cls.def("__call__", &BaseTransform::operator(), "inputCatalog"_a, "outputCatalog"_a, "wcs"_a,
                 "photoCalib"_a);
