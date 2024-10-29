@@ -43,14 +43,19 @@ from .applyApCorr import ApplyApCorrTask
 from .catalogCalculation import CatalogCalculationTask
 from ._id_generator import DetectorVisitIdGeneratorConfig
 
-__all__ = ("ForcedPhotCcdConfig", "ForcedPhotCcdTask",
-           "ForcedPhotCcdFromDataFrameTask", "ForcedPhotCcdFromDataFrameConfig")
+__all__ = (
+    "ForcedPhotCcdConfig",
+    "ForcedPhotCcdTask",
+    "ForcedPhotCcdFromDataFrameTask",
+    "ForcedPhotCcdFromDataFrameConfig",
+)
 
 
-class ForcedPhotCcdConnections(PipelineTaskConnections,
-                               dimensions=("instrument", "visit", "detector", "skymap", "tract"),
-                               defaultTemplates={"inputCoaddName": "deep",
-                                                 "inputName": "calexp"}):
+class ForcedPhotCcdConnections(
+    PipelineTaskConnections,
+    dimensions=("instrument", "visit", "detector", "skymap", "tract"),
+    defaultTemplates={"inputCoaddName": "deep", "inputName": "pvi"},
+):
     inputSchema = cT.InitInput(
         doc="Schema for the input measurement catalogs.",
         name="{inputCoaddName}Coadd_ref_schema",
@@ -82,7 +87,7 @@ class ForcedPhotCcdConnections(PipelineTaskConnections,
         dimensions=["skymap"],
     )
     skyCorr = cT.Input(
-        doc="Input Sky Correction to be subtracted from the calexp if doApplySkyCorr=True",
+        doc="Input Sky Correction to be subtracted from the exposure if doApplySkyCorr=True",
         name="skyCorr",
         storageClass="Background",
         dimensions=("instrument", "visit", "detector"),
@@ -103,15 +108,16 @@ class ForcedPhotCcdConnections(PipelineTaskConnections,
     def __init__(self, *, config=None):
         super().__init__(config=config)
         if not config.doApplySkyCorr:
-            self.inputs.remove("skyCorr")
+            del self.skyCorr
+        if not config.useVisitSummary:
+            del self.visitSummary
 
 
-class ForcedPhotCcdConfig(pipeBase.PipelineTaskConfig,
-                          pipelineConnections=ForcedPhotCcdConnections):
+class ForcedPhotCcdConfig(pipeBase.PipelineTaskConfig, pipelineConnections=ForcedPhotCcdConnections):
     """Config class for forced measurement driver task."""
+
     measurement = lsst.pex.config.ConfigurableField(
-        target=ForcedMeasurementTask,
-        doc="subtask to do forced measurement"
+        target=ForcedMeasurementTask, doc="subtask to do forced measurement"
     )
     coaddName = lsst.pex.config.Field(
         doc="coadd name: typically one of deep or goodSeeing",
@@ -119,22 +125,27 @@ class ForcedPhotCcdConfig(pipeBase.PipelineTaskConfig,
         default="deep",
     )
     doApCorr = lsst.pex.config.Field(
-        dtype=bool,
-        default=True,
-        doc="Run subtask to apply aperture corrections"
+        dtype=bool, default=True, doc="Run subtask to apply aperture corrections"
     )
     applyApCorr = lsst.pex.config.ConfigurableField(
-        target=ApplyApCorrTask,
-        doc="Subtask to apply aperture corrections"
+        target=ApplyApCorrTask, doc="Subtask to apply aperture corrections"
     )
     catalogCalculation = lsst.pex.config.ConfigurableField(
-        target=CatalogCalculationTask,
-        doc="Subtask to run catalogCalculation plugins on catalog"
+        target=CatalogCalculationTask, doc="Subtask to run catalogCalculation plugins on catalog"
     )
     doApplySkyCorr = lsst.pex.config.Field(
         dtype=bool,
         default=False,
         doc="Apply sky correction?",
+    )
+    useVisitSummary = lsst.pex.config.Field(
+        dtype=bool,
+        default=False,
+        doc=(
+            "Use updated WCS, PhotoCalib, ApCorr, and PSF from visit summary? "
+            "This should be False if and only if the input image already has the best-available calibration "
+            "objects attached."
+        ),
     )
     includePhotoCalibVar = lsst.pex.config.Field(
         dtype=bool,
@@ -146,8 +157,10 @@ class ForcedPhotCcdConfig(pipeBase.PipelineTaskConfig,
         doc="Where to obtain footprints to install in the measurement catalog, prior to measurement.",
         allowed={
             "transformed": "Transform footprints from the reference catalog (downgrades HeavyFootprints).",
-            "psf": ("Use the scaled shape of the PSF at the position of each source (does not generate "
-                    "HeavyFootprints)."),
+            "psf": (
+                "Use the scaled shape of the PSF at the position of each source (does not generate "
+                "HeavyFootprints)."
+            ),
         },
         optional=True,
         default="transformed",
@@ -167,13 +180,14 @@ class ForcedPhotCcdConfig(pipeBase.PipelineTaskConfig,
         self.measurement.doReplaceWithNoise = False
         # Only run a minimal set of plugins, as these measurements are only
         # needed for PSF-like sources.
-        self.measurement.plugins.names = ["base_PixelFlags",
-                                          "base_TransformedCentroid",
-                                          "base_PsfFlux",
-                                          "base_LocalBackground",
-                                          "base_LocalPhotoCalib",
-                                          "base_LocalWcs",
-                                          ]
+        self.measurement.plugins.names = [
+            "base_PixelFlags",
+            "base_TransformedCentroid",
+            "base_PsfFlux",
+            "base_LocalBackground",
+            "base_LocalPhotoCalib",
+            "base_LocalWcs",
+        ]
         self.measurement.slots.shape = None
         # Make catalogCalculation a no-op by default as no modelFlux is setup
         # by default in ForcedMeasurementTask.
@@ -204,7 +218,7 @@ class ForcedPhotCcdTask(pipeBase.PipelineTask):
         super().__init__(**kwargs)
 
         if initInputs is not None:
-            refSchema = initInputs['inputSchema'].schema
+            refSchema = initInputs["inputSchema"].schema
 
         if refSchema is None:
             raise ValueError("No reference schema provided.")
@@ -215,36 +229,40 @@ class ForcedPhotCcdTask(pipeBase.PipelineTask):
         # measurement task, but is passed in by an external caller.
         if self.config.doApCorr:
             self.makeSubtask("applyApCorr", schema=self.measurement.schema)
-        self.makeSubtask('catalogCalculation', schema=self.measurement.schema)
+        self.makeSubtask("catalogCalculation", schema=self.measurement.schema)
         self.outputSchema = lsst.afw.table.SourceCatalog(self.measurement.schema)
 
     def runQuantum(self, butlerQC, inputRefs, outputRefs):
         inputs = butlerQC.get(inputRefs)
 
-        tract = butlerQC.quantum.dataId['tract']
-        skyMap = inputs.pop('skyMap')
-        inputs['refWcs'] = skyMap[tract].getWcs()
+        tract = butlerQC.quantum.dataId["tract"]
+        skyMap = inputs.pop("skyMap")
+        inputs["refWcs"] = skyMap[tract].getWcs()
 
         # Connections only exist if they are configured to be used.
-        skyCorr = inputs.pop('skyCorr', None)
+        skyCorr = inputs.pop("skyCorr", None)
 
-        inputs['exposure'] = self.prepareCalibratedExposure(
-            inputs['exposure'],
+        inputs["exposure"] = self.prepareCalibratedExposure(
+            inputs["exposure"],
             skyCorr=skyCorr,
-            visitSummary=inputs.pop("visitSummary"),
+            visitSummary=inputs.pop("visitSummary", None),
         )
 
-        inputs['refCat'] = self.mergeAndFilterReferences(inputs['exposure'], inputs['refCat'],
-                                                         inputs['refWcs'])
+        inputs["refCat"] = self.mergeAndFilterReferences(
+            inputs["exposure"], inputs["refCat"], inputs["refWcs"]
+        )
 
-        if inputs['refCat'] is None:
-            self.log.info("No WCS for exposure %s.  No %s catalog will be written.",
-                          butlerQC.quantum.dataId, outputRefs.measCat.datasetType.name)
+        if inputs["refCat"] is None:
+            self.log.info(
+                "No WCS for exposure %s.  No %s catalog will be written.",
+                butlerQC.quantum.dataId,
+                outputRefs.measCat.datasetType.name,
+            )
         else:
-            inputs['measCat'], inputs['exposureId'] = self.generateMeasCat(inputRefs.exposure.dataId,
-                                                                           inputs['exposure'],
-                                                                           inputs['refCat'], inputs['refWcs'])
-            self.attachFootprints(inputs['measCat'], inputs['refCat'], inputs['exposure'], inputs['refWcs'])
+            inputs["measCat"], inputs["exposureId"] = self.generateMeasCat(
+                inputRefs.exposure.dataId, inputs["exposure"], inputs["refCat"], inputs["refWcs"]
+            )
+            self.attachFootprints(inputs["measCat"], inputs["refCat"], inputs["exposure"], inputs["refWcs"])
             outputs = self.run(**inputs)
             butlerQC.put(outputs, outputRefs)
 
@@ -324,8 +342,7 @@ class ForcedPhotCcdTask(pipeBase.PipelineTask):
             expRegion = exposure.getBBox(lsst.afw.image.PARENT)
             expBBox = lsst.geom.Box2D(expRegion)
             expBoxCorners = expBBox.getCorners()
-            expSkyCorners = [expWcs.pixelToSky(corner).getVector() for
-                             corner in expBoxCorners]
+            expSkyCorners = [expWcs.pixelToSky(corner).getVector() for corner in expBoxCorners]
             expPolygon = lsst.sphgeom.ConvexPolygon(expSkyCorners)
 
             # Step 2: Filter out reference catalog sources that are
@@ -339,8 +356,10 @@ class ForcedPhotCcdTask(pipeBase.PipelineTask):
                     mergedRefCat = lsst.afw.table.SourceCatalog(refCat.table)
                     containedIds = {0}  # zero as a parent ID means "this is a parent"
                 for record in refCat:
-                    if (expPolygon.contains(record.getCoord().getVector()) and record.getParent()
-                            in containedIds):
+                    if (
+                        expPolygon.contains(record.getCoord().getVector())
+                        and record.getParent() in containedIds
+                    ):
                         record.setFootprint(record.getFootprint())
                         mergedRefCat.append(record)
                         containedIds.add(record.getId())
@@ -372,8 +391,9 @@ class ForcedPhotCcdTask(pipeBase.PipelineTask):
             Unique binary id associated with the input exposure
         """
         id_generator = self.config.idGenerator.apply(dataId)
-        measCat = self.measurement.generateMeasCat(exposure, refCat, refWcs,
-                                                   idFactory=id_generator.make_table_id_factory())
+        measCat = self.measurement.generateMeasCat(
+            exposure, refCat, refWcs, idFactory=id_generator.make_table_id_factory()
+        )
         return measCat, id_generator.catalog_id
 
     def run(self, measCat, exposure, refCat, refWcs, exposureId=None):
@@ -435,15 +455,19 @@ class ForcedPhotCcdTask(pipeBase.PipelineTask):
         if self.config.footprintSource == "transformed":
             return self.measurement.attachTransformedFootprints(sources, refCat, exposure, refWcs)
         elif self.config.footprintSource == "psf":
-            return self.measurement.attachPsfShapeFootprints(sources, exposure,
-                                                             scaling=self.config.psfFootprintScaling)
+            return self.measurement.attachPsfShapeFootprints(
+                sources, exposure, scaling=self.config.psfFootprintScaling
+            )
 
 
-class ForcedPhotCcdFromDataFrameConnections(PipelineTaskConnections,
-                                            dimensions=("instrument", "visit", "detector", "skymap", "tract"),
-                                            defaultTemplates={"inputCoaddName": "goodSeeing",
-                                                              "inputName": "calexp",
-                                                              }):
+class ForcedPhotCcdFromDataFrameConnections(
+    PipelineTaskConnections,
+    dimensions=("instrument", "visit", "detector", "skymap", "tract"),
+    defaultTemplates={
+        "inputCoaddName": "goodSeeing",
+        "inputName": "pvi",
+    },
+):
     refCat = cT.Input(
         doc="Catalog of positions at which to force photometry.",
         name="{inputCoaddName}Diff_fullDiaObjTable",
@@ -459,7 +483,7 @@ class ForcedPhotCcdFromDataFrameConnections(PipelineTaskConnections,
         dimensions=["instrument", "visit", "detector"],
     )
     skyCorr = cT.Input(
-        doc="Input Sky Correction to be subtracted from the calexp if doApplySkyCorr=True",
+        doc="Input Sky Correction to be subtracted from the exposure if doApplySkyCorr=True",
         name="skyCorr",
         storageClass="Background",
         dimensions=("instrument", "visit", "detector"),
@@ -491,38 +515,44 @@ class ForcedPhotCcdFromDataFrameConnections(PipelineTaskConnections,
     def __init__(self, *, config=None):
         super().__init__(config=config)
         if not config.doApplySkyCorr:
-            self.inputs.remove("skyCorr")
+            del self.skyCorr
+        if not config.useVisitSummary:
+            del self.visitSummary
 
 
-class ForcedPhotCcdFromDataFrameConfig(ForcedPhotCcdConfig,
-                                       pipelineConnections=ForcedPhotCcdFromDataFrameConnections):
+class ForcedPhotCcdFromDataFrameConfig(
+    ForcedPhotCcdConfig, pipelineConnections=ForcedPhotCcdFromDataFrameConnections
+):
     def setDefaults(self):
         super().setDefaults()
         self.footprintSource = "psf"
         self.measurement.doReplaceWithNoise = False
         # Only run a minimal set of plugins, as these measurements are only
         # needed for PSF-like sources.
-        self.measurement.plugins.names = ["base_PixelFlags",
-                                          "base_TransformedCentroidFromCoord",
-                                          "base_PsfFlux",
-                                          "base_LocalBackground",
-                                          "base_LocalPhotoCalib",
-                                          "base_LocalWcs",
-                                          ]
+        self.measurement.plugins.names = [
+            "base_PixelFlags",
+            "base_TransformedCentroidFromCoord",
+            "base_PsfFlux",
+            "base_LocalBackground",
+            "base_LocalPhotoCalib",
+            "base_LocalWcs",
+        ]
         self.measurement.slots.shape = None
         # Make catalogCalculation a no-op by default as no modelFlux is setup
         # by default in ForcedMeasurementTask.
         self.catalogCalculation.plugins.names = []
 
-        self.measurement.copyColumns = {'id': 'diaObjectId', 'coord_ra': 'coord_ra', 'coord_dec': 'coord_dec'}
+        self.measurement.copyColumns = {"id": "diaObjectId", "coord_ra": "coord_ra", "coord_dec": "coord_dec"}
         self.measurement.slots.centroid = "base_TransformedCentroidFromCoord"
         self.measurement.slots.psfFlux = "base_PsfFlux"
 
     def validate(self):
         super().validate()
         if self.footprintSource == "transformed":
-            raise ValueError("Cannot transform footprints from reference catalog, "
-                             "because DataFrames can't hold footprints.")
+            raise ValueError(
+                "Cannot transform footprints from reference catalog, "
+                "because DataFrames can't hold footprints."
+            )
 
 
 class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
@@ -533,6 +563,7 @@ class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
     Writes out a SourceCatalog so that the downstream
     WriteForcedSourceTableTask can be reused with output from this Task.
     """
+
     _DefaultName = "forcedPhotCcdFromDataFrame"
     ConfigClass = ForcedPhotCcdFromDataFrameConfig
 
@@ -544,7 +575,7 @@ class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
 
         if self.config.doApCorr:
             self.makeSubtask("applyApCorr", schema=self.measurement.schema)
-        self.makeSubtask('catalogCalculation', schema=self.measurement.schema)
+        self.makeSubtask("catalogCalculation", schema=self.measurement.schema)
         self.outputSchema = lsst.afw.table.SourceCatalog(self.measurement.schema)
 
     def runQuantum(self, butlerQC, inputRefs, outputRefs):
@@ -555,23 +586,25 @@ class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
         inputs["refWcs"] = skyMap[tract].getWcs()
 
         # Connections only exist if they are configured to be used.
-        skyCorr = inputs.pop('skyCorr', None)
+        skyCorr = inputs.pop("skyCorr", None)
 
-        inputs['exposure'] = self.prepareCalibratedExposure(
-            inputs['exposure'],
+        inputs["exposure"] = self.prepareCalibratedExposure(
+            inputs["exposure"],
             skyCorr=skyCorr,
-            visitSummary=inputs.pop("visitSummary"),
+            visitSummary=inputs.pop("visitSummary", None),
         )
 
-        self.log.info("Filtering ref cats: %s", ','.join([str(i.dataId) for i in inputs['refCat']]))
+        self.log.info("Filtering ref cats: %s", ",".join([str(i.dataId) for i in inputs["refCat"]]))
         if inputs["exposure"].getWcs() is not None:
-            refCat = self.df2RefCat([i.get(parameters={"columns": ['diaObjectId', 'ra', 'dec']})
-                                     for i in inputs['refCat']],
-                                    inputs['exposure'].getBBox(), inputs['exposure'].getWcs())
-            inputs['refCat'] = refCat
+            refCat = self.df2RefCat(
+                [i.get(parameters={"columns": ["diaObjectId", "ra", "dec"]}) for i in inputs["refCat"]],
+                inputs["exposure"].getBBox(),
+                inputs["exposure"].getWcs(),
+            )
+            inputs["refCat"] = refCat
             # generateMeasCat does not use the refWcs.
-            inputs['measCat'], inputs['exposureId'] = self.generateMeasCat(
-                inputRefs.exposure.dataId, inputs['exposure'], inputs['refCat'], inputs['refWcs']
+            inputs["measCat"], inputs["exposureId"] = self.generateMeasCat(
+                inputRefs.exposure.dataId, inputs["exposure"], inputs["refCat"], inputs["refWcs"]
             )
             # attachFootprints only uses refWcs in ``transformed`` mode, which is not
             # supported in the DataFrame-backed task.
@@ -580,8 +613,11 @@ class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
 
             butlerQC.put(outputs, outputRefs)
         else:
-            self.log.info("No WCS for %s.  Skipping and no %s catalog will be written.",
-                          butlerQC.quantum.dataId, outputRefs.measCat.datasetType.name)
+            self.log.info(
+                "No WCS for %s.  Skipping and no %s catalog will be written.",
+                butlerQC.quantum.dataId,
+                outputRefs.measCat.datasetType.name,
+            )
 
     def df2RefCat(self, dfList, exposureBBox, exposureWcs):
         """Convert list of DataFrames to reference catalog
@@ -609,7 +645,7 @@ class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
         # translate ra/dec coords in dataframe to detector pixel coords
         # to down select rows that overlap the detector bbox
         mapping = exposureWcs.getTransform().getMapping()
-        x, y = mapping.applyInverse(np.array(df[['ra', 'dec']].values*2*np.pi/360).T)
+        x, y = mapping.applyInverse(np.array(df[["ra", "dec"]].values * 2 * np.pi / 360).T)
         inBBox = lsst.geom.Box2D(exposureBBox).contains(x, y)
         refCat = self.df2SourceCat(df[inBBox])
         return refCat
@@ -633,7 +669,7 @@ class ForcedPhotCcdFromDataFrameTask(ForcedPhotCcdTask):
         outputCatalog = lsst.afw.table.SourceCatalog(schema)
         outputCatalog.reserve(len(df))
 
-        for diaObjectId, ra, dec in df[['ra', 'dec']].itertuples():
+        for diaObjectId, ra, dec in df[["ra", "dec"]].itertuples():
             outputRecord = outputCatalog.addNew()
             outputRecord.setId(diaObjectId)
             outputRecord.setCoord(lsst.geom.SpherePoint(ra, dec, lsst.geom.degrees))
