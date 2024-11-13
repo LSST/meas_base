@@ -101,7 +101,7 @@ PixelFlagsAlgorithm::PixelFlagsAlgorithm(Control const& ctrl, std::string const&
         : _ctrl(ctrl) {
     // Add generic keys first, which don't correspond to specific mask planes
     _generalFailureKey = schema.addField<afw::table::Flag>(
-            name + "_flag", "General failure flag, set if anything went wrong");
+            name + "_flag", "General failure flag, set if anything went wrong setting flags.");
     _offImageKey =
             schema.addField<afw::table::Flag>(name + "_flag" + "_offimage", "Source center is off image");
     // Set all the flags that correspond to mask planes anywhere in the footprint
