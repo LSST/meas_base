@@ -35,11 +35,6 @@ import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 import lsst.utils.tests
 
-try:
-    type(display)
-except NameError:
-    display = False
-
 FwhmPerSigma = 2*math.sqrt(2*math.log(2))  # FWHM for an N(0, 1) Gaussian
 
 
@@ -59,12 +54,6 @@ def makePluginAndCat(alg, name, control, metadata=False, centroid=None):
 
 
 class MeasureSourcesTestCase(lsst.utils.tests.TestCase):
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def testCircularApertureMeasure(self):
         mi = afwImage.MaskedImageF(lsst.geom.ExtentI(100, 200))
