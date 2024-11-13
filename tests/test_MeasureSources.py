@@ -244,7 +244,7 @@ class MeasureSourcesTestCase(lsst.utils.tests.TestCase):
                                (60, 60, ['interpolatedCenter',
                                          'interpolated']),
                                (60, 62, ['interpolated']),
-                               (20, 80, ['edge']),
+                               (20, 80, ['nodata']),
                                (30, 30, ['clipped']),
                                ]:
             spans = afwGeom.SpanSet.fromShape(5).shiftedBy(x + x0,
