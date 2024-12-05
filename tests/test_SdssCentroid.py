@@ -187,6 +187,29 @@ class SdssCentroidTestCase(AlgorithmTestCase, lsst.utils.tests.TestCase):
         self.assertTrue(catalog[0].get("base_SdssCentroid_flag"))
         self.assertTrue(catalog[0].get("base_SdssCentroid_flag_notAtMaximum"))
 
+    def testNegative(self):
+        """Test that negative sources are well measured, without error flags.
+        """
+        dataset = lsst.meas.base.tests.TestDataset(self.bbox)
+        dataset.addSource(-10000.0, self.center, negative=True)
+        task = self.makeSingleFrameMeasurementTask("base_SdssCentroid")
+        exposure, catalog = dataset.realize(10.0, task.schema, randomSeed=4)
+
+        print("!!!!!!!")
+        print("!!!!!!!")
+        task.run(catalog, exposure)
+        record = catalog[0]
+        print(record)
+        # import os; print(os.getpid()); import ipdb; ipdb.set_trace();
+        self.assertFalse(record.get("base_SdssCentroid_flag"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_edge"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_notAtMaximum"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_near_edge"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_resetToPeak"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_badError"))
+        self.assertFloatsAlmostEqual(record.get("base_SdssCentroid_x"), record.get("truth_x"), rtol=0.005)
+        self.assertFloatsAlmostEqual(record.get("base_SdssCentroid_y"), record.get("truth_y"), rtol=0.005)
+
 
 class SdssCentroidTransformTestCase(CentroidTransformTestCase,
                                     SingleFramePluginTransformSetupHelper,
