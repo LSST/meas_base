@@ -47,12 +47,6 @@ class SdssCentroidTestCase(AlgorithmTestCase, lsst.utils.tests.TestCase):
         self.dataset = lsst.meas.base.tests.TestDataset(self.bbox)
         self.dataset.addSource(100000.0, self.center)
 
-    def tearDown(self):
-
-        del self.center
-        del self.bbox
-        del self.dataset
-
     def makeAlgorithm(self, ctrl=None):
         """Construct an algorithm and return both it and its schema.
         """
@@ -71,6 +65,10 @@ class SdssCentroidTestCase(AlgorithmTestCase, lsst.utils.tests.TestCase):
         record = catalog[0]
         self.assertFalse(record.get("base_SdssCentroid_flag"))
         self.assertFalse(record.get("base_SdssCentroid_flag_edge"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_notAtMaximum"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_near_edge"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_resetToPeak"))
+        self.assertFalse(record.get("base_SdssCentroid_flag_badError"))
         self.assertFloatsAlmostEqual(record.get("base_SdssCentroid_x"), record.get("truth_x"), rtol=0.005)
         self.assertFloatsAlmostEqual(record.get("base_SdssCentroid_y"), record.get("truth_y"), rtol=0.005)
 
