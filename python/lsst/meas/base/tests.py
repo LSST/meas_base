@@ -212,6 +212,9 @@ class TestDataset:
             )
             cls.keys["isStar"] = schema.addField("truth_isStar", type="Flag",
                                                  doc="set if the object is a star")
+            cls.keys["negative"] = schema.addField("flags_negative", type="Flag",
+                                                   doc="set if source was detected as significantly negative"
+                                                   )
             schema.getAliasMap().set("slot_Shape", "truth")
             schema.getAliasMap().set("slot_Centroid", "truth")
             schema.getAliasMap().set("slot_ModelFlux", "truth")
@@ -411,13 +414,15 @@ class TestDataset:
         image.array[:, :] = np.exp(-0.5*(xt**2 + yt**2))*instFlux/(2.0*ellipse.getCore().getArea())
         return image
 
-    def _installFootprint(self, record, image, setPeakSignificance=True):
+    def _installFootprint(self, record, image, setPeakSignificance=True, negative=False):
         """Create simulated Footprint and add it to a truth catalog record.
         """
         schema = lsst.afw.detection.PeakTable.makeMinimalSchema()
         if setPeakSignificance:
             schema.addField("significance", type=float,
                             doc="Ratio of peak value to configured standard deviation.")
+        if negative:
+            self.threshold.setPolarity(False)
         # Run detection on the single-source image
         fpSet = lsst.afw.detection.FootprintSet(image, self.threshold, peakSchema=schema)
         # the call below to the FootprintSet ctor is actually a grow operation
@@ -427,6 +432,8 @@ class TestDataset:
             # threshold type, but it's the best we can do in that case.
             for footprint in fpSet.getFootprints():
                 footprint.updatePeakSignificance(self.threshold.getValue())
+        if negative:
+            self.threshold.setPolarity(True)
         # Update the full exposure's mask plane to indicate the detection
         fpSet.setMask(self.exposure.mask, "DETECTED")
         # Attach the new footprint to the exposure
@@ -436,7 +443,8 @@ class TestDataset:
             raise RuntimeError("Threshold value results in zero Footprints for object")
         record.setFootprint(fpSet.getFootprints()[0])
 
-    def addSource(self, instFlux, centroid, shape=None, setPeakSignificance=True):
+    def addSource(self, instFlux, centroid, shape=None, setPeakSignificance=True,
+                  negative=False):
         """Add a source to the simulation.
 
         To insert a point source with a given signal-to-noise (sn), the total
@@ -458,6 +466,9 @@ class TestDataset:
             Set the ``significance`` field for peaks in the footprints?
             See ``lsst.meas.algorithms.SourceDetectionTask.setPeakSignificance``
             for how this field is computed for real datasets.
+        negative : `bool`
+            Treat this as a negative source, using a negative polarity
+            Threshold to create the footprint.
 
         Returns
         -------
@@ -471,6 +482,7 @@ class TestDataset:
         record.set(self.keys["instFlux"], instFlux)
         record.set(self.keys["instFluxErr"], 0)
         record.set(self.keys["centroid"], centroid)
+        record.set(self.keys["negative"], negative)
         covariance = np.random.normal(0, 0.1, 4).reshape(2, 2)
         covariance[0, 1] = covariance[1, 0]  # CovarianceMatrixKey assumes symmetric x_y_Cov
         record.set(self.keys["centroid_sigma"], covariance.astype(np.float32))
@@ -485,7 +497,7 @@ class TestDataset:
         image = self.drawGaussian(self.exposure.getBBox(), instFlux,
                                   lsst.afw.geom.Ellipse(fullShape, centroid))
         # Generate a footprint for this source
-        self._installFootprint(record, image, setPeakSignificance)
+        self._installFootprint(record, image, setPeakSignificance, negative=negative)
         # Actually add the source to the full exposure
         self.exposure.image.array[:, :] += image.array
         return record, image
