@@ -148,6 +148,9 @@ int doMeasureCentroidImpl(double *xCenter,                 // output; x-position
     double const sx = 0.5 * (mim.image(1, 0) - mim.image(-1, 0));
     double const sy = 0.5 * (mim.image(0, 1) - mim.image(0, -1));
 
+    std::cout << "@@@@@@@@@@@@@@" << std::endl;
+    std::cout << d2x << " " << d2y << " " << sx << " " << sy << std::endl;
+
     if (d2x == 0.0 || d2y == 0.0) {
         return SdssCentroidAlgorithm::NO_SECOND_DERIVATIVE.number;
     }
@@ -362,8 +365,10 @@ void SdssCentroidAlgorithm::measure(afw::table::SourceRecord &measRecord,
         double sizeX2, sizeY2;  // object widths^2 in x and y directions
         double peakVal;         // peak intensity in image
 
-        errorFlag = doMeasureCentroidImpl(&xc, &dxc, &yc, &dyc, &sizeX2, &sizeY2, &peakVal, mim, smoothingSigma, negative,
-                                          _flagHandler);
+        errorFlag = doMeasureCentroidImpl(&xc, &dxc, &yc, &dyc, &sizeX2, &sizeY2, &peakVal, mim,
+                                          smoothingSigma, negative, _flagHandler);
+        std::cout << errorFlag << " " << negative << " " << xc << " " << yc << " " << dxc << " " << dyc
+                  << std::endl;
         if (errorFlag > 0) {
             _flagHandler.setValue(measRecord, errorFlag, true);
             _flagHandler.setValue(measRecord, SdssCentroidAlgorithm::FAILURE.number, true);
