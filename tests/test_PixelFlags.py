@@ -46,6 +46,9 @@ class PixelFlagsTestCase(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.test
         self.assertFalse(record.get("base_PixelFlags_flag_edge"))
         self.assertFalse(record.get("base_PixelFlags_flag_edgeCenter"))
         self.assertFalse(record.get("base_PixelFlags_flag_edgeCenterAll"))
+        self.assertFalse(record.get("base_PixelFlags_flag_nodata"))
+        self.assertFalse(record.get("base_PixelFlags_flag_nodataCenter"))
+        self.assertFalse(record.get("base_PixelFlags_flag_nodataCenterAll"))
         self.assertFalse(record.get("base_PixelFlags_flag_interpolated"))
         self.assertFalse(record.get("base_PixelFlags_flag_interpolatedCenter"))
         self.assertFalse(record.get("base_PixelFlags_flag_interpolatedCenterAll"))
@@ -80,6 +83,9 @@ class PixelFlagsTestCase(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.test
         self.assertFalse(record.get("base_PixelFlags_flag_edge"))
         self.assertFalse(record.get("base_PixelFlags_flag_edgeCenter"))
         self.assertFalse(record.get("base_PixelFlags_flag_edgeCenterAll"))
+        self.assertFalse(record.get("base_PixelFlags_flag_nodata"))
+        self.assertFalse(record.get("base_PixelFlags_flag_nodataCenter"))
+        self.assertFalse(record.get("base_PixelFlags_flag_nodataCenterAll"))
         self.assertTrue(record.get("base_PixelFlags_flag_cr"))
         self.assertFalse(record.get("base_PixelFlags_flag_crCenter"))
         self.assertFalse(record.get("base_PixelFlags_flag_crCenterAll"))
@@ -128,16 +134,16 @@ class PixelFlagsTestCase(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.test
         task = self.makeSingleFrameMeasurementTask("base_PixelFlags")
         exposure, catalog = self.dataset.realize(10.0, task.schema, randomSeed=0)
 
-        # Mask 4 pixels at the x-edges
+        # Mask 4 pixels at the y-edges (note numpy vs. afw flipped indices!)
         edgeBit = exposure.mask.getPlaneBitMask("EDGE")
         exposure.mask.array[:4, :] |= edgeBit
         exposure.mask.array[-4:, ] |= edgeBit
-        # Mask 4 pixels at the y-edges
+        # Mask 4 pixels at the x-edges
         nodataBit = exposure.mask.getPlaneBitMask("NO_DATA")
         exposure.mask.array[:, :4] |= nodataBit
         exposure.mask.array[:, -4:] |= nodataBit
 
-        # All of these should get edgeCenter and edgeCenterAll.
+        # All of these should get Center and CenterAll.
         catalog[0]["slot_Centroid_x"] = -20.5  # on image
         catalog[1]["slot_Centroid_x"] = -20.51  # off image
         catalog[2]["slot_Centroid_y"] = 129.4  # on image
@@ -147,18 +153,34 @@ class PixelFlagsTestCase(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.test
 
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_offimage"],
                                       np.array([False, True, False, True]))
+
+        # Centroid and footprints don't line up, so edge is only set for the
+        # sources that have off-image centroids.
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_edge"],
                                       np.array([False, True, False, True]))
+        # Center[All] is set for off-image and on-EDGE sources, because it's
+        # based on the centroid location.
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_edgeCenter"],
-                                      np.array([True, True, True, True]))
+                                      np.array([False, True, True, True]))
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_edgeCenterAll"],
-                                      np.array([True, True, True, True]))
+                                      np.array([False, True, True, True]))
+
+        # Centroid and footprints don't line up, so nodata is not set.
+        np.testing.assert_array_equal(catalog["base_PixelFlags_flag_nodata"],
+                                      np.array([False, False, False, False]))
+        # Center[All] is set for on-NO_DATA sources, because it's based on the
+        # centroid location.
+        np.testing.assert_array_equal(catalog["base_PixelFlags_flag_nodataCenter"],
+                                      np.array([True, True, False, False]))
+        np.testing.assert_array_equal(catalog["base_PixelFlags_flag_nodataCenterAll"],
+                                      np.array([True, True, False, False]))
 
     def testEdgeFlags(self):
-        """Test that edge/edgeCenter/edgeCenterAll are set appropriately.
+        """Test that edge/edgeCenter/edgeCenterAll and the equivalent nodata
+        flags are set appropriately.
         """
-        # Half of the Central 3x3 pixels are on the masked EDGE; no offimage or
-        # edgeCenterAll, but edge and edgeCenter.
+        # Half of the Central 3x3 pixels are on the masked NO_DATA; no offimage or
+        # nodataCenterAll, but nodata and nodataCenter.
         self.dataset.addSource(100000, lsst.geom.Point2D(115, 30))
         # Central 3x3 pixels all masked EDGE; no offimage but all edge flags.
         self.dataset.addSource(100000, lsst.geom.Point2D(10, 127))
@@ -166,11 +188,11 @@ class PixelFlagsTestCase(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.test
         task = self.makeSingleFrameMeasurementTask("base_PixelFlags")
         exposure, catalog = self.dataset.realize(10.0, task.schema, randomSeed=0)
 
-        # Mask 4 pixels at the x-edges
+        # Mask 4 pixels at the y-edges (note numpy vs. afw flipped indices!)
         edgeBit = exposure.mask.getPlaneBitMask("EDGE")
         exposure.mask.array[:4, :] |= edgeBit
         exposure.mask.array[-4:, ] |= edgeBit
-        # Mask 4 pixels at the y-edges
+        # Mask 4 pixels at the x-edges
         nodataBit = exposure.mask.getPlaneBitMask("NO_DATA")
         exposure.mask.array[:, :4] |= nodataBit
         exposure.mask.array[:, -4:] |= nodataBit
@@ -179,10 +201,18 @@ class PixelFlagsTestCase(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.test
 
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_offimage"],
                                       np.array([False, False]))
+
+        np.testing.assert_array_equal(catalog["base_PixelFlags_flag_nodata"],
+                                      np.array([True, False]))
+        np.testing.assert_array_equal(catalog["base_PixelFlags_flag_nodataCenter"],
+                                      np.array([True, False]))
+        np.testing.assert_array_equal(catalog["base_PixelFlags_flag_nodataCenterAll"],
+                                      np.array([False, False]))
+
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_edge"],
-                                      np.array([True, True]))
+                                      np.array([False, True]))
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_edgeCenter"],
-                                      np.array([True, True]))
+                                      np.array([False, True]))
         np.testing.assert_array_equal(catalog["base_PixelFlags_flag_edgeCenterAll"],
                                       np.array([False, True]))
 
